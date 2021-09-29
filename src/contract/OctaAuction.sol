@@ -1,13 +1,13 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.7;
+pragma solidity ^0.8.0;
 
-import "@openzeppelin/contracts/math/SafeMath.sol";
+import "@openzeppelin/contracts/utils/math/SafeMath.sol";
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
-import "@openzeppelin/contracts/token/ERC20/SafeERC20.sol";
+import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import "@openzeppelin/contracts/token/ERC721/IERC721.sol";
 import "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
 import "@openzeppelin/contracts-upgradeable/utils/AddressUpgradeable.sol";
-import "@openzeppelin/contracts-upgradeable/utils/ReentrancyGuardUpgradeable.sol";
+import "@openzeppelin/contracts-upgradeable/security/ReentrancyGuardUpgradeable.sol";
 
 interface IOctaAddressRegistry {
     function marketplace() external view returns (address);
@@ -218,8 +218,9 @@ contract OctaAuction is OwnableUpgradeable, ReentrancyGuardUpgradeable {
         require(
             _payToken == address(0) ||
                 (addressRegistry.tokenRegistry() != address(0) &&
-                    IOctaTokenRegistry(addressRegistry.tokenRegistry())
-                        .enabled(_payToken)),
+                    IOctaTokenRegistry(addressRegistry.tokenRegistry()).enabled(
+                        _payToken
+                    )),
             "invalid pay token"
         );
 
@@ -246,7 +247,10 @@ contract OctaAuction is OwnableUpgradeable, ReentrancyGuardUpgradeable {
         nonReentrant
         whenNotPaused
     {
-        require(_msgSender().isContract() == false, "no contracts permitted");
+        require(
+            payable(_msgSender()).isContract() == false,
+            "no contracts permitted"
+        );
 
         // Check the auction to see if this is a valid bid
         Auction memory auction = auctions[_nftAddress][_tokenId];
@@ -274,7 +278,10 @@ contract OctaAuction is OwnableUpgradeable, ReentrancyGuardUpgradeable {
         uint256 _tokenId,
         uint256 _bidAmount
     ) external nonReentrant whenNotPaused {
-        require(_msgSender().isContract() == false, "no contracts permitted");
+        require(
+            payable(_msgSender()).isContract() == false,
+            "no contracts permitted"
+        );
 
         // Check the auction to see if this is a valid bid
         Auction memory auction = auctions[_nftAddress][_tokenId];
@@ -320,7 +327,7 @@ contract OctaAuction is OwnableUpgradeable, ReentrancyGuardUpgradeable {
         }
 
         // assign top bidder and bid time
-        highestBid.bidder = _msgSender();
+        highestBid.bidder = payable(_msgSender());
         highestBid.bid = _bidAmount;
         highestBid.lastBidTime = _getNow();
 
@@ -363,7 +370,12 @@ contract OctaAuction is OwnableUpgradeable, ReentrancyGuardUpgradeable {
         delete highestBids[_nftAddress][_tokenId];
 
         // Refund the top bidder
-        _refundHighestBidder(_nftAddress, _tokenId, _msgSender(), previousBid);
+        _refundHighestBidder(
+            _nftAddress,
+            _tokenId,
+            payable(_msgSender()),
+            previousBid
+        );
 
         emit BidWithdrawn(_nftAddress, _tokenId, _msgSender(), previousBid);
     }
@@ -494,10 +506,7 @@ contract OctaAuction is OwnableUpgradeable, ReentrancyGuardUpgradeable {
                 } else {
                     IERC20 payToken = IERC20(auction.payToken);
                     require(
-                        payToken.transfer(
-                            minter,
-                            royaltyFee
-                        ),
+                        payToken.transfer(minter, royaltyFee),
                         "failed to send the royalties"
                     );
                 }
@@ -516,10 +525,7 @@ contract OctaAuction is OwnableUpgradeable, ReentrancyGuardUpgradeable {
             } else {
                 IERC20 payToken = IERC20(auction.payToken);
                 require(
-                    payToken.transfer(
-                        auction.owner,
-                        payAmount
-                    ),
+                    payToken.transfer(auction.owner, payAmount),
                     "failed to send the owner the auction balance"
                 );
             }
@@ -537,7 +543,9 @@ contract OctaAuction is OwnableUpgradeable, ReentrancyGuardUpgradeable {
             _tokenId,
             winner,
             auction.payToken,
-            IOctaMarketplace(addressRegistry.marketplace()).getPrice(auction.payToken),
+            IOctaMarketplace(addressRegistry.marketplace()).getPrice(
+                auction.payToken
+            ),
             winningBid
         );
     }
@@ -622,7 +630,12 @@ contract OctaAuction is OwnableUpgradeable, ReentrancyGuardUpgradeable {
         require(auction.endTime > 0, "no auction exists");
 
         auction.reservePrice = _reservePrice;
-        emit UpdateAuctionReservePrice(_nftAddress, _tokenId, auction.payToken, _reservePrice);
+        emit UpdateAuctionReservePrice(
+            _nftAddress,
+            _tokenId,
+            auction.payToken,
+            _reservePrice
+        );
     }
 
     /**
@@ -849,10 +862,7 @@ contract OctaAuction is OwnableUpgradeable, ReentrancyGuardUpgradeable {
         } else {
             IERC20 payToken = IERC20(auction.payToken);
             require(
-                payToken.transfer(
-                    _currentHighestBidder,
-                    _currentHighestBid
-                ),
+                payToken.transfer(_currentHighestBidder, _currentHighestBid),
                 "failed to refund previous bidder"
             );
         }

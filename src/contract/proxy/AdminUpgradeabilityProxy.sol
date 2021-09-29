@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.7;
+pragma solidity ^0.8.0;
 
 /**
  * @title Proxy
@@ -140,14 +140,14 @@ library Address {
     function sendValue(address payable recipient, uint256 amount) internal {
         require(
             address(this).balance >= amount,
-            'Address: insufficient balance'
+            "Address: insufficient balance"
         );
 
         // solhint-disable-next-line avoid-low-level-calls, avoid-call-value
-        (bool success, ) = recipient.call{value: amount}('');
+        (bool success, ) = recipient.call{value: amount}("");
         require(
             success,
-            'Address: unable to send value, recipient may have reverted'
+            "Address: unable to send value, recipient may have reverted"
         );
     }
 
@@ -173,7 +173,7 @@ library Address {
         internal
         returns (bytes memory)
     {
-        return functionCall(target, data, 'Address: low-level call failed');
+        return functionCall(target, data, "Address: low-level call failed");
     }
 
     /**
@@ -211,7 +211,7 @@ library Address {
                 target,
                 data,
                 value,
-                'Address: low-level call with value failed'
+                "Address: low-level call with value failed"
             );
     }
 
@@ -229,7 +229,7 @@ library Address {
     ) internal returns (bytes memory) {
         require(
             address(this).balance >= value,
-            'Address: insufficient balance for call'
+            "Address: insufficient balance for call"
         );
         return _functionCallWithValue(target, data, value, errorMessage);
     }
@@ -240,7 +240,7 @@ library Address {
         uint256 weiValue,
         string memory errorMessage
     ) private returns (bytes memory) {
-        require(isContract(target), 'Address: call to non-contract');
+        require(isContract(target), "Address: call to non-contract");
 
         // solhint-disable-next-line avoid-low-level-calls
         (bool success, bytes memory returndata) = target.call{value: weiValue}(
@@ -285,7 +285,7 @@ contract UpgradeabilityProxy is Proxy {
     constructor(address _logic, bytes memory _data) public payable {
         assert(
             IMPLEMENTATION_SLOT ==
-                bytes32(uint256(keccak256('eip1967.proxy.implementation')) - 1)
+                bytes32(uint256(keccak256("eip1967.proxy.implementation")) - 1)
         );
         _setImplementation(_logic);
         if (_data.length > 0) {
@@ -335,7 +335,7 @@ contract UpgradeabilityProxy is Proxy {
     function _setImplementation(address newImplementation) internal {
         require(
             Address.isContract(newImplementation),
-            'Cannot set a proxy implementation to a non-contract address'
+            "Cannot set a proxy implementation to a non-contract address"
         );
 
         bytes32 slot = IMPLEMENTATION_SLOT;
@@ -360,7 +360,7 @@ contract AdminUpgradeabilityProxy is UpgradeabilityProxy {
     /**
      * Contract constructor.
      * @param _logic address of the initial implementation.
-     * @param _admin Address of the proxy administrator.
+     * @param _adminAddress Address of the proxy administrator.
      * @param _data Data to send as msg.data to the implementation to initialize the proxied contract.
      * It should include the signature and the parameters of the function to be called, as described in
      * https://solidity.readthedocs.io/en/v0.4.24/abi-spec.html#function-selector-and-argument-encoding.
@@ -368,13 +368,13 @@ contract AdminUpgradeabilityProxy is UpgradeabilityProxy {
      */
     constructor(
         address _logic,
-        address _admin,
+        address _adminAddress,
         bytes memory _data
     ) public payable UpgradeabilityProxy(_logic, _data) {
         assert(
-            ADMIN_SLOT == bytes32(uint256(keccak256('eip1967.proxy.admin')) - 1)
+            ADMIN_SLOT == bytes32(uint256(keccak256("eip1967.proxy.admin")) - 1)
         );
-        _setAdmin(_admin);
+        _setAdmin(_adminAddress);
     }
 
     /**
@@ -428,7 +428,7 @@ contract AdminUpgradeabilityProxy is UpgradeabilityProxy {
     function changeAdmin(address newAdmin) external ifAdmin {
         require(
             newAdmin != address(0),
-            'Cannot change the admin of a proxy to the zero address'
+            "Cannot change the admin of a proxy to the zero address"
         );
         emit AdminChanged(_admin(), newAdmin);
         _setAdmin(newAdmin);
@@ -490,7 +490,7 @@ contract AdminUpgradeabilityProxy is UpgradeabilityProxy {
     function _willFallback() internal virtual override {
         require(
             msg.sender != _admin(),
-            'Cannot call fallback function from the proxy admin'
+            "Cannot call fallback function from the proxy admin"
         );
         super._willFallback();
     }

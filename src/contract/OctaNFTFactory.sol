@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.7;
+pragma solidity ^0.8.0;
 
 import "@openzeppelin/contracts/access/Ownable.sol";
 import "./OctaNFT.sol";
@@ -28,7 +28,7 @@ contract OctaNFTFactory is Ownable {
     mapping(address => bool) public exists;
 
     bytes4 private constant INTERFACE_ID_ERC721 = 0x80ac58cd;
-    
+
     /// @notice Contract constructor
     constructor(
         address _auction,
@@ -101,7 +101,7 @@ contract OctaNFTFactory is Ownable {
         returns (address)
     {
         require(msg.value >= platformFee, "Insufficient funds.");
-        (bool success,) = feeRecipient.call{value: msg.value}("");
+        (bool success, ) = feeRecipient.call{value: msg.value}("");
         require(success, "Transfer failed");
 
         OctaNFT nft = new OctaNFT(
@@ -124,8 +124,16 @@ contract OctaNFTFactory is Ownable {
         external
         onlyOwner
     {
-        require(!exists[tokenContractAddress], "NFT contract already registered");
-        require(IERC165(tokenContractAddress).supportsInterface(INTERFACE_ID_ERC721), "Not an ERC721 contract");
+        require(
+            !exists[tokenContractAddress],
+            "NFT contract already registered"
+        );
+        require(
+            IERC165(tokenContractAddress).supportsInterface(
+                INTERFACE_ID_ERC721
+            ),
+            "Not an ERC721 contract"
+        );
         exists[tokenContractAddress] = true;
         emit ContractCreated(_msgSender(), tokenContractAddress);
     }

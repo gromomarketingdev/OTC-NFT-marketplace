@@ -1,19 +1,19 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.7;
+pragma solidity ^0.8.0;
 
-import '@openzeppelin/contracts/introspection/IERC165.sol';
-import '@openzeppelin/contracts/token/ERC1155/IERC1155.sol';
-import '@openzeppelin/contracts/token/ERC721/IERC721.sol';
-import '@openzeppelin/contracts/token/ERC20/IERC20.sol';
-import '@openzeppelin/contracts/token/ERC20/SafeERC20.sol';
-import '@openzeppelin/contracts/math/SafeMath.sol';
-import '@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol';
-import '@openzeppelin/contracts-upgradeable/utils/AddressUpgradeable.sol';
-import '@openzeppelin/contracts-upgradeable/utils/ReentrancyGuardUpgradeable.sol';
+import "@openzeppelin/contracts/utils/introspection/IERC165.sol";
+import "@openzeppelin/contracts/token/ERC1155/IERC1155.sol";
+import "@openzeppelin/contracts/token/ERC721/IERC721.sol";
+import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
+import "@openzeppelin/contracts/utils/math/SafeMath.sol";
+import "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
+import "@openzeppelin/contracts-upgradeable/utils/AddressUpgradeable.sol";
+import "@openzeppelin/contracts-upgradeable/security/ReentrancyGuardUpgradeable.sol";
 
 interface IOctaAddressRegistry {
     function factory() external view returns (address);
-    
+
     function tokenRegistry() external view returns (address);
 }
 
@@ -47,7 +47,6 @@ contract OctaMarketplace is OwnableUpgradeable, ReentrancyGuardUpgradeable {
         uint256 tokenId,
         uint256 quantity,
         address payToken,
-        int256 unitPrice,
         uint256 pricePerItem
     );
     event ItemUpdated(
@@ -136,7 +135,7 @@ contract OctaMarketplace is OwnableUpgradeable, ReentrancyGuardUpgradeable {
         address _owner
     ) {
         Listing memory listing = listings[_nftAddress][_tokenId][_owner];
-        require(listing.quantity > 0, 'not listed item');
+        require(listing.quantity > 0, "not listed item");
         _;
     }
 
@@ -146,7 +145,7 @@ contract OctaMarketplace is OwnableUpgradeable, ReentrancyGuardUpgradeable {
         address _owner
     ) {
         Listing memory listing = listings[_nftAddress][_tokenId][_owner];
-        require(listing.quantity == 0, 'already listed');
+        require(listing.quantity == 0, "already listed");
         _;
     }
 
@@ -158,19 +157,19 @@ contract OctaMarketplace is OwnableUpgradeable, ReentrancyGuardUpgradeable {
         Listing memory listedItem = listings[_nftAddress][_tokenId][_owner];
         if (IERC165(_nftAddress).supportsInterface(INTERFACE_ID_ERC721)) {
             IERC721 nft = IERC721(_nftAddress);
-            require(nft.ownerOf(_tokenId) == _owner, 'not owning item');
+            require(nft.ownerOf(_tokenId) == _owner, "not owning item");
         } else if (
             IERC165(_nftAddress).supportsInterface(INTERFACE_ID_ERC1155)
         ) {
             IERC1155 nft = IERC1155(_nftAddress);
             require(
                 nft.balanceOf(_owner, _tokenId) >= listedItem.quantity,
-                'not owning item'
+                "not owning item"
             );
         } else {
-            revert('invalid nft address');
+            revert("invalid nft address");
         }
-        require(_getNow() >= listedItem.startingTime, 'item not buyable');
+        require(_getNow() >= listedItem.startingTime, "item not buyable");
         _;
     }
 
@@ -182,7 +181,7 @@ contract OctaMarketplace is OwnableUpgradeable, ReentrancyGuardUpgradeable {
         Offer memory offer = offers[_nftAddress][_tokenId][_creator];
         require(
             offer.quantity > 0 && offer.deadline > _getNow(),
-            'offer not exists or expired'
+            "offer not exists or expired"
         );
         _;
     }
@@ -195,7 +194,7 @@ contract OctaMarketplace is OwnableUpgradeable, ReentrancyGuardUpgradeable {
         Offer memory offer = offers[_nftAddress][_tokenId][_creator];
         require(
             offer.quantity == 0 || offer.deadline <= _getNow(),
-            'offer already created'
+            "offer already created"
         );
         _;
     }
@@ -229,10 +228,10 @@ contract OctaMarketplace is OwnableUpgradeable, ReentrancyGuardUpgradeable {
     ) external notListed(_nftAddress, _tokenId, _msgSender()) {
         if (IERC165(_nftAddress).supportsInterface(INTERFACE_ID_ERC721)) {
             IERC721 nft = IERC721(_nftAddress);
-            require(nft.ownerOf(_tokenId) == _msgSender(), 'not owning item');
+            require(nft.ownerOf(_tokenId) == _msgSender(), "not owning item");
             require(
                 nft.isApprovedForAll(_msgSender(), address(this)),
-                'item not approved'
+                "item not approved"
             );
         } else if (
             IERC165(_nftAddress).supportsInterface(INTERFACE_ID_ERC1155)
@@ -240,14 +239,14 @@ contract OctaMarketplace is OwnableUpgradeable, ReentrancyGuardUpgradeable {
             IERC1155 nft = IERC1155(_nftAddress);
             require(
                 nft.balanceOf(_msgSender(), _tokenId) >= _quantity,
-                'must hold enough nfts'
+                "must hold enough nfts"
             );
             require(
                 nft.isApprovedForAll(_msgSender(), address(this)),
-                'item not approved'
+                "item not approved"
             );
         } else {
-            revert('invalid nft address');
+            revert("invalid nft address");
         }
 
         require(
@@ -256,7 +255,7 @@ contract OctaMarketplace is OwnableUpgradeable, ReentrancyGuardUpgradeable {
                     IOctaTokenRegistry(addressRegistry.tokenRegistry()).enabled(
                         _payToken
                     )),
-            'invalid pay token'
+            "invalid pay token"
         );
 
         listings[_nftAddress][_tokenId][_msgSender()] = Listing(
@@ -301,17 +300,17 @@ contract OctaMarketplace is OwnableUpgradeable, ReentrancyGuardUpgradeable {
         ];
         if (IERC165(_nftAddress).supportsInterface(INTERFACE_ID_ERC721)) {
             IERC721 nft = IERC721(_nftAddress);
-            require(nft.ownerOf(_tokenId) == _msgSender(), 'not owning item');
+            require(nft.ownerOf(_tokenId) == _msgSender(), "not owning item");
         } else if (
             IERC165(_nftAddress).supportsInterface(INTERFACE_ID_ERC1155)
         ) {
             IERC1155 nft = IERC1155(_nftAddress);
             require(
                 nft.balanceOf(_msgSender(), _tokenId) >= listedItem.quantity,
-                'not owning item'
+                "not owning item"
             );
         } else {
-            revert('invalid nft address');
+            revert("invalid nft address");
         }
 
         require(
@@ -320,7 +319,7 @@ contract OctaMarketplace is OwnableUpgradeable, ReentrancyGuardUpgradeable {
                     IOctaTokenRegistry(addressRegistry.tokenRegistry()).enabled(
                         _payToken
                     )),
-            'invalid pay token'
+            "invalid pay token"
         );
 
         listedItem.payToken = _payToken;
@@ -349,10 +348,10 @@ contract OctaMarketplace is OwnableUpgradeable, ReentrancyGuardUpgradeable {
         validListing(_nftAddress, _tokenId, _owner)
     {
         Listing memory listedItem = listings[_nftAddress][_tokenId][_owner];
-        require(listedItem.payToken == address(0), 'invalid pay token');
+        require(listedItem.payToken == address(0), "invalid pay token");
         require(
             msg.value >= listedItem.pricePerItem.mul(listedItem.quantity),
-            'insufficient balance to buy'
+            "insufficient balance to buy"
         );
 
         _buyItem(_nftAddress, _tokenId, address(0), _owner);
@@ -373,7 +372,7 @@ contract OctaMarketplace is OwnableUpgradeable, ReentrancyGuardUpgradeable {
         validListing(_nftAddress, _tokenId, _owner)
     {
         Listing memory listedItem = listings[_nftAddress][_tokenId][_owner];
-        require(listedItem.payToken == _payToken, 'invalid pay token');
+        require(listedItem.payToken == _payToken, "invalid pay token");
 
         _buyItem(_nftAddress, _tokenId, _payToken, _owner);
     }
@@ -390,9 +389,9 @@ contract OctaMarketplace is OwnableUpgradeable, ReentrancyGuardUpgradeable {
         uint256 feeAmount = price.mul(platformFee).div(1e3);
         if (_payToken == address(0)) {
             (bool feeTransferSuccess, ) = feeReceipient.call{value: feeAmount}(
-                ''
+                ""
             );
-            require(feeTransferSuccess, 'fee transfer failed');
+            require(feeTransferSuccess, "fee transfer failed");
         } else {
             IERC20(_payToken).safeTransferFrom(
                 _msgSender(),
@@ -408,8 +407,8 @@ contract OctaMarketplace is OwnableUpgradeable, ReentrancyGuardUpgradeable {
             if (_payToken == address(0)) {
                 (bool royaltyTransferSuccess, ) = payable(minter).call{
                     value: royaltyFee
-                }('');
-                require(royaltyTransferSuccess, 'royalty fee transfer failed');
+                }("");
+                require(royaltyTransferSuccess, "royalty fee transfer failed");
             } else {
                 IERC20(_payToken).safeTransferFrom(
                     _msgSender(),
@@ -428,10 +427,10 @@ contract OctaMarketplace is OwnableUpgradeable, ReentrancyGuardUpgradeable {
                 if (_payToken == address(0)) {
                     (bool royaltyTransferSuccess, ) = payable(minter).call{
                         value: royaltyFee
-                    }('');
+                    }("");
                     require(
                         royaltyTransferSuccess,
-                        'royalty fee transfer failed'
+                        "royalty fee transfer failed"
                     );
                 } else {
                     IERC20(_payToken).safeTransferFrom(
@@ -446,8 +445,8 @@ contract OctaMarketplace is OwnableUpgradeable, ReentrancyGuardUpgradeable {
         if (_payToken == address(0)) {
             (bool ownerTransferSuccess, ) = _owner.call{
                 value: price.sub(feeAmount)
-            }('');
-            require(ownerTransferSuccess, 'owner transfer failed');
+            }("");
+            require(ownerTransferSuccess, "owner transfer failed");
         } else {
             IERC20(_payToken).safeTransferFrom(
                 _msgSender(),
@@ -469,7 +468,7 @@ contract OctaMarketplace is OwnableUpgradeable, ReentrancyGuardUpgradeable {
                 _msgSender(),
                 _tokenId,
                 listedItem.quantity,
-                bytes('')
+                bytes("")
             );
         }
 
@@ -480,7 +479,6 @@ contract OctaMarketplace is OwnableUpgradeable, ReentrancyGuardUpgradeable {
             _tokenId,
             listedItem.quantity,
             _payToken,
-            getPrice(_payToken),
             price.div(listedItem.quantity)
         );
         delete (listings[_nftAddress][_tokenId][_owner]);
@@ -504,16 +502,16 @@ contract OctaMarketplace is OwnableUpgradeable, ReentrancyGuardUpgradeable {
         require(
             IERC165(_nftAddress).supportsInterface(INTERFACE_ID_ERC721) ||
                 IERC165(_nftAddress).supportsInterface(INTERFACE_ID_ERC1155),
-            'invalid nft address'
+            "invalid nft address"
         );
-        require(_deadline > _getNow(), 'invalid expiration');
+        require(_deadline > _getNow(), "invalid expiration");
         require(
             address(_payToken) == address(0) ||
                 (addressRegistry.tokenRegistry() != address(0) &&
                     IOctaTokenRegistry(addressRegistry.tokenRegistry()).enabled(
                         address(_payToken)
                     )),
-            'invalid pay token'
+            "invalid pay token"
         );
 
         offers[_nftAddress][_tokenId][_msgSender()] = Offer(
@@ -557,17 +555,17 @@ contract OctaMarketplace is OwnableUpgradeable, ReentrancyGuardUpgradeable {
         Offer memory offer = offers[_nftAddress][_tokenId][_creator];
         if (IERC165(_nftAddress).supportsInterface(INTERFACE_ID_ERC721)) {
             IERC721 nft = IERC721(_nftAddress);
-            require(nft.ownerOf(_tokenId) == _msgSender(), 'not owning item');
+            require(nft.ownerOf(_tokenId) == _msgSender(), "not owning item");
         } else if (
             IERC165(_nftAddress).supportsInterface(INTERFACE_ID_ERC1155)
         ) {
             IERC1155 nft = IERC1155(_nftAddress);
             require(
                 nft.balanceOf(_msgSender(), _tokenId) >= offer.quantity,
-                'not owning item'
+                "not owning item"
             );
         } else {
-            revert('invalid nft address');
+            revert("invalid nft address");
         }
 
         uint256 price = offer.pricePerItem.mul(offer.quantity);
@@ -609,7 +607,7 @@ contract OctaMarketplace is OwnableUpgradeable, ReentrancyGuardUpgradeable {
                 _creator,
                 _tokenId,
                 offer.quantity,
-                bytes('')
+                bytes("")
             );
         }
 
@@ -623,7 +621,6 @@ contract OctaMarketplace is OwnableUpgradeable, ReentrancyGuardUpgradeable {
             _tokenId,
             offer.quantity,
             address(offer.payToken),
-            getPrice(address(offer.payToken)),
             offer.pricePerItem
         );
         emit OfferCanceled(_creator, _nftAddress, _tokenId);
@@ -638,24 +635,24 @@ contract OctaMarketplace is OwnableUpgradeable, ReentrancyGuardUpgradeable {
         uint256 _tokenId,
         uint16 _royalty
     ) external {
-        require(_royalty <= 10000, 'invalid royalty');
-        require(_isOctaNFT(_nftAddress), 'invalid nft address');
+        require(_royalty <= 10000, "invalid royalty");
+        require(_isOctaNFT(_nftAddress), "invalid nft address");
         if (IERC165(_nftAddress).supportsInterface(INTERFACE_ID_ERC721)) {
             IERC721 nft = IERC721(_nftAddress);
-            require(nft.ownerOf(_tokenId) == _msgSender(), 'not owning item');
+            require(nft.ownerOf(_tokenId) == _msgSender(), "not owning item");
         } else if (
             IERC165(_nftAddress).supportsInterface(INTERFACE_ID_ERC1155)
         ) {
             IERC1155 nft = IERC1155(_nftAddress);
             require(
                 nft.balanceOf(_msgSender(), _tokenId) > 0,
-                'not owning item'
+                "not owning item"
             );
         }
 
         require(
             minters[_nftAddress][_tokenId] == address(0),
-            'royalty already set'
+            "royalty already set"
         );
         minters[_nftAddress][_tokenId] = _msgSender();
         royalties[_nftAddress][_tokenId] = _royalty;
@@ -670,16 +667,16 @@ contract OctaMarketplace is OwnableUpgradeable, ReentrancyGuardUpgradeable {
         uint16 _royalty,
         address _feeRecipient
     ) external onlyOwner {
-        require(_creator != address(0), 'invalid creator address');
-        require(_royalty <= 10000, 'invalid royalty');
+        require(_creator != address(0), "invalid creator address");
+        require(_royalty <= 10000, "invalid royalty");
         require(
             _royalty == 0 || _feeRecipient != address(0),
-            'invalid fee recipient address'
+            "invalid fee recipient address"
         );
-        require(!_isOctaNFT(_nftAddress), 'invalid nft address');
+        require(!_isOctaNFT(_nftAddress), "invalid nft address");
         require(
             collectionRoyalties[_nftAddress].creator == address(0),
-            'royalty already set'
+            "royalty already set"
         );
         collectionRoyalties[_nftAddress] = CollectionRoyalty(
             _royalty,
@@ -689,33 +686,7 @@ contract OctaMarketplace is OwnableUpgradeable, ReentrancyGuardUpgradeable {
     }
 
     function _isOctaNFT(address _nftAddress) internal view returns (bool) {
-        return
-            IOctaNFTFactory(addressRegistry.factory()).exists(_nftAddress);
-    }
-
-    /**
-     @notice Method for getting price for pay token
-     @param _payToken Paying token
-     */
-    function getPrice(address _payToken) public view returns (int256) {
-        int256 unitPrice;
-        uint8 decimals;
-        if (_payToken == address(0)) {
-            IOctaPriceFeed priceFeed = IOctaPriceFeed(
-                addressRegistry.priceFeed()
-            );
-            (unitPrice, decimals) = priceFeed.getPrice(priceFeed.wFTM());
-        } else {
-            (unitPrice, decimals) = IOctaPriceFeed(addressRegistry.priceFeed())
-                .getPrice(_payToken);
-        }
-        if (decimals < 18) {
-            unitPrice = unitPrice * (int256(10)**(18 - decimals));
-        } else {
-            unitPrice = unitPrice / (int256(10)**(decimals - 18));
-        }
-
-        return unitPrice;
+        return IOctaNFTFactory(addressRegistry.factory()).exists(_nftAddress);
     }
 
     /**
@@ -763,17 +734,17 @@ contract OctaMarketplace is OwnableUpgradeable, ReentrancyGuardUpgradeable {
         Listing memory listedItem = listings[_nftAddress][_tokenId][_owner];
         if (IERC165(_nftAddress).supportsInterface(INTERFACE_ID_ERC721)) {
             IERC721 nft = IERC721(_nftAddress);
-            require(nft.ownerOf(_tokenId) == _owner, 'not owning item');
+            require(nft.ownerOf(_tokenId) == _owner, "not owning item");
         } else if (
             IERC165(_nftAddress).supportsInterface(INTERFACE_ID_ERC1155)
         ) {
             IERC1155 nft = IERC1155(_nftAddress);
             require(
                 nft.balanceOf(_msgSender(), _tokenId) >= listedItem.quantity,
-                'not owning item'
+                "not owning item"
             );
         } else {
-            revert('invalid nft address');
+            revert("invalid nft address");
         }
 
         delete (listings[_nftAddress][_tokenId][_owner]);

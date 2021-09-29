@@ -1,10 +1,15 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.7;
+pragma solidity ^0.8.0;
 
 import "@openzeppelin/contracts/token/ERC721/ERC721.sol";
+import "@openzeppelin/contracts/token/ERC721/extensions/ERC721URIStorage.sol";
+import "@openzeppelin/contracts/token/ERC721/extensions/ERC721Enumerable.sol";
 import "@openzeppelin/contracts/access/Ownable.sol";
+import "@openzeppelin/contracts/utils/Counters.sol";
 
-contract OctaNFT is ERC721, Ownable {
+contract OctaNFT is ERC721, ERC721Enumerable, ERC721URIStorage, Ownable {
+    using Counters for Counters.Counter;
+
     /// @dev Events of the contract
     event Minted(
         uint256 tokenId,
@@ -12,17 +17,12 @@ contract OctaNFT is ERC721, Ownable {
         string tokenUri,
         address minter
     );
-    event UpdatePlatformFee(
-        uint256 platformFee
-    );
-    event UpdateFeeRecipient(
-        address payable feeRecipient
-    );
+    event UpdatePlatformFee(uint256 platformFee);
+    event UpdateFeeRecipient(address payable feeRecipient);
 
     address auction;
     address marketplace;
-    uint256 private _currentTokenId = 0;
-
+    Counters.Counter private _tokenIds;
     /// @notice Platform fee
     uint256 public platformFee;
 
@@ -74,13 +74,14 @@ contract OctaNFT is ERC721, Ownable {
     function mint(address _to, string calldata _tokenUri) external payable {
         require(msg.value >= platformFee, "Insufficient funds to mint.");
 
-        uint256 newTokenId = _getNextTokenId();
+        _tokenIds.increment();
+        uint256 newTokenId = _tokenIds.current();
+
         _safeMint(_to, newTokenId);
         _setTokenURI(newTokenId, _tokenUri);
-        _incrementTokenId();
 
-        // Send FTM fee to fee recipient
-        (bool success,) = feeReceipient.call{value : msg.value}("");
+        // Send OCTA fee to fee recipient
+        (bool success, ) = feeReceipient.call{value: msg.value}("");
         require(success, "Transfer failed");
 
         emit Minted(newTokenId, _to, _tokenUri, _msgSender());
@@ -103,41 +104,29 @@ contract OctaNFT is ERC721, Ownable {
     }
 
     /**
-     * @dev calculates the next token ID based on value of _currentTokenId
-     * @return uint256 for the next token ID
-     */
-    function _getNextTokenId() private view returns (uint256) {
-        return _currentTokenId.add(1);
-    }
-
-    /**
-     * @dev increments the value of _currentTokenId
-     */
-    function _incrementTokenId() private {
-        _currentTokenId++;
-    }
-
-    /**
      * @dev checks the given token ID is approved either for all or the single token ID
      */
-    function isApproved(uint256 _tokenId, address _operator) public view returns (bool) {
-        return isApprovedForAll(ownerOf(_tokenId), _operator) || getApproved(_tokenId) == _operator;
+    function isApproved(uint256 _tokenId, address _operator)
+        public
+        view
+        returns (bool)
+    {
+        return
+            isApprovedForAll(ownerOf(_tokenId), _operator) ||
+            getApproved(_tokenId) == _operator;
     }
 
     /**
      * Override isApprovedForAll to whitelist Octa contracts to enable gas-less listings.
      */
     function isApprovedForAll(address owner, address operator)
-        override
         public
         view
+        override
         returns (bool)
     {
         // Whitelist Octa auction, marketplace contracts for easy trading.
-        if (
-            auction == operator ||
-            marketplace == operator
-        ) {
+        if (auction == operator || marketplace == operator) {
             return true;
         }
 
@@ -147,10 +136,53 @@ contract OctaNFT is ERC721, Ownable {
     /**
      * Override _isApprovedOrOwner to whitelist Octa contracts to enable gas-less listings.
      */
-    function _isApprovedOrOwner(address spender, uint256 tokenId) override internal view returns (bool) {
-        require(_exists(tokenId), "ERC721: operator query for nonexistent token");
+    function _isApprovedOrOwner(address spender, uint256 tokenId)
+        internal
+        view
+        override
+        returns (bool)
+    {
+        require(
+            _exists(tokenId),
+            "ERC721: operator query for nonexistent token"
+        );
         address owner = ERC721.ownerOf(tokenId);
         if (isApprovedForAll(owner, spender)) return true;
         return super._isApprovedOrOwner(spender, tokenId);
+    }
+
+    // The following functions are overrides required by Solidity.
+
+    function _beforeTokenTransfer(
+        address from,
+        address to,
+        uint256 tokenId
+    ) internal override(ERC721, ERC721Enumerable) {
+        super._beforeTokenTransfer(from, to, tokenId);
+    }
+
+    function _burn(uint256 tokenId)
+        internal
+        override(ERC721, ERC721URIStorage)
+    {
+        super._burn(tokenId);
+    }
+
+    function tokenURI(uint256 tokenId)
+        public
+        view
+        override(ERC721, ERC721URIStorage)
+        returns (string memory)
+    {
+        return super.tokenURI(tokenId);
+    }
+
+    function supportsInterface(bytes4 interfaceId)
+        public
+        view
+        override(ERC721, ERC721Enumerable)
+        returns (bool)
+    {
+        return super.supportsInterface(interfaceId);
     }
 }
